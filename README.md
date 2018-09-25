@@ -10,7 +10,7 @@ Based on UDRF specification:
 Based on DH specification:
 ![Denavit-Hartenberg Diagram](https://raw.githubusercontent.com/SeninAndrew/RoboND-Kinematics-Project/master/imgs/urdf_params.png)
 
-Based on the arm specification here are the DH paramters:
+Based on comparison of the specifications we convert the robot dimension information to the DH table as follows:
 
 ```
 DH = {
