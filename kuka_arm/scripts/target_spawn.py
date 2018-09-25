@@ -42,7 +42,7 @@ def update_spawn_location():
     target_desc_arg = "-urdf -param target_description -x " + str(x_select) + " -y " + str(y_select) + " -z " + str(z_select) + " -model target_model"
     rospy.set_param('target_description_argument', target_desc_arg)
 
-    print"Target will spawn at location# %d: %f %f %f" % (select, x_select, y_select, z_select)
+    print("Target will spawn at location# %d: %f %f %f" % (select, x_select, y_select, z_select))
 
 
 if __name__ == '__main__':

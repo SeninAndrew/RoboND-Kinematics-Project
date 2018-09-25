@@ -63,13 +63,103 @@ def test_code(test_case):
     ## 
 
     ## Insert IK code here!
-    
-    theta1 = 0
-    theta2 = 0
-    theta3 = 0
-    theta4 = 0
-    theta5 = 0
-    theta6 = 0
+
+    # Extract position and orientation of the EE
+    px = req.poses[x].position.x
+    py = req.poses[x].position.y
+    pz = req.poses[x].position.z
+
+    (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(
+        [req.poses[x].orientation.x,
+         req.poses[x].orientation.y,
+         req.poses[x].orientation.z,
+         req.poses[x].orientation.w])
+
+    # Define the DH table
+    q1, q2, q3, q4, q5, q6, q7 = symbols('q1:8')
+    alpha0, alpha1, alpha2, alpha3, alpha4, alpha5, alpha6 = symbols('alpha0:7')
+    d1, d2, d3, d4, d5, d6, d7 = symbols('d1:8')
+    a0, a1, a2, a3, a4, a5, a6 = symbols('a0:7')
+
+    DH = {
+      alpha0: 0,      a0: 0,       q1: q1,         d1: 0.75,
+      alpha1: -pi/2,  a1: 0.35,    q2: q2 - pi/2,  d2: 0,
+      alpha2: 0,      a2: 1.25,    q3: q3,         d3: 0,
+      alpha3: -pi/2,  a3: -0.054,  q4: q4,         d4: 1.5,
+      alpha4: pi/2,   a4: 0,       q5: q5,         d5: 0,
+      alpha5: -pi/2,  a5: 0,       q6: q6,         d6: 0,
+      alpha6: 0,      a6: 0,       q7: 0,          d7: 0.303,
+    }
+
+    def GetRotationMatrixByDHParams(alpha, a, q, d):
+        return Matrix([[cos(q),             -sin(q),               0.0,         a], 
+                       [sin(q) * cos(alpha), cos(q) * cos(alpha), -sin(alpha), -sin(alpha) * d],
+                       [sin(q) * sin(alpha), cos(q) * sin(alpha),  cos(alpha),  cos(alpha) * d],
+                       [0.0,                 0.0,                  0.0,         1.0]]) 
+
+    def GetRotationMatrixByEuler(rx, ry, rz):
+        mx = Matrix([[1.0,  0.0,      0.0], 
+                     [0.0,  cos(rx), -sin(rx)],
+                     [0.0,  sin(rx),  cos(rx)]])
+
+        my = Matrix([[cos(ry),  0.0,      sin(ry)], 
+                     [0.0,      1.0,      0.0],
+                     [-sin(ry), 0.0 ,     cos(ry)]])
+
+        mz = Matrix([[cos(rz), -sin(rz),  0.0], 
+                     [sin(rz),  cos(rz),  0.0],
+                     [0.0,      0.0,      1.0]])
+
+        return mz * my * mx
+
+    # Homogeneous matrix from neighboring joints 
+    T0_1 = GetRotationMatrixByDHParams(alpha0, a0, q1, d1).subs(DH)
+    T1_2 = GetRotationMatrixByDHParams(alpha1, a1, q2, d2).subs(DH)
+    T2_3 = GetRotationMatrixByDHParams(alpha2, a2, q3, d3).subs(DH)
+    T3_4 = GetRotationMatrixByDHParams(alpha3, a3, q4, d4).subs(DH)
+    T4_5 = GetRotationMatrixByDHParams(alpha4, a4, q5, d5).subs(DH)
+    T5_6 = GetRotationMatrixByDHParams(alpha5, a5, q6, d6).subs(DH)
+    T6_7 = GetRotationMatrixByDHParams(alpha6, a6, q7, d7).subs(DH)
+
+    # Correction from DH to Kuka 
+    EE_corr = GetRotationMatrixByEuler(0,0,pi) * GetRotationMatrixByEuler(0,-pi/2,0)
+
+    T0_EE = T0_1 * T1_2 * T2_3 * T3_4 * T4_5 * T5_6 * T6_7
+
+    EE_pos = Matrix([[px],
+                     [py],
+                     [pz]])
+    EE_orientation = GetRotationMatrixByEuler(roll, pitch, yaw)
+
+    EE_orientation_corrected = EE_orientation * EE_corr
+
+    # Locate the wrist center
+    WC_pos = EE_pos - DH[d7] * EE_orientation_corrected [:, 2]
+
+    # Solving for the first 3 thetas
+    theta1 = atan2(WC_pos[1], WC_pos[0])
+    s1 = DH[d4]
+    s2 = sqrt(pow(sqrt(WC_pos[0] * WC_pos[0] + WC_pos[1] * WC_pos[1]) - DH[a1], 2) + pow((WC_pos[2] - DH[d1]), 2)) 
+    s3 = DH[a2]
+
+    angle1 = acos((s2 * s2 + s3 * s3 - s1 * s1) / (2 * s2 * s3))
+    angle2 = acos((s1 * s1 + s3 * s3 - s2 * s2) / (2 * s1 * s3))
+    angle3 = acos((s1 * s1 + s2 * s2 - s3 * s3 ) / (2 * s1 * s2))
+
+    theta2 = pi/2. - angle1 - atan2(WC_pos[2] - DH[d1], sqrt(WC_pos[0] * WC_pos[0] + WC_pos[1] * WC_pos[1]) - DH[a1])
+    theta3 = pi/2. - (angle2 + 0.036) # 0.036 accounts for sag in link4 of -0.054m
+
+    # Finding rotation matrix for the last 3 joints
+    R0_3 = T0_1[0:3,0:3] * T1_2[0:3,0:3] * T2_3[0:3,0:3]
+    R0_3 = R0_3.evalf(subs={q1: theta1, q2:theta2, q3: theta3})
+    R3_6 = R0_3.transpose() * EE_orientation_corrected
+
+    # Euler angles from rotation matrix
+    theta4 = atan2(R3_6[2,2], -R3_6[0,2])
+    theta5 = atan2(sqrt(R3_6[0,2]*R3_6[0,2] + R3_6[2,2]*R3_6[2,2]), R3_6[1,2])
+    theta6 = atan2(-R3_6[1,1], R3_6[1,0]) 
+
+    # Calculating last 3 thetas from the rotation matrix
 
     ## 
     ########################################################################################
@@ -79,13 +169,15 @@ def test_code(test_case):
     ## as the input and output the position of your end effector as your_ee = [x,y,z]
 
     ## (OPTIONAL) YOUR CODE HERE!
+    FK = T0_EE.evalf(subs={q1: theta1, q2:theta2, q3:theta3, q4:theta4, q5:theta5, q6:theta6})
+
 
     ## End your code input for forward kinematics here!
     ########################################################################################
 
     ## For error analysis please set the following variables of your WC location and EE location in the format of [x,y,z]
-    your_wc = [1,1,1] # <--- Load your calculated WC values in this array
-    your_ee = [1,1,1] # <--- Load your calculated end effector value from your forward kinematics
+    your_wc = [WC_pos[0], WC_pos[1], WC_pos[2]] # <--- Load your calculated WC values in this array
+    your_ee = [FK[0,3], FK[1,3], FK[2,3]] # <--- Load your calculated end effector value from your forward kinematics
     ########################################################################################
 
     ## Error analysis
@@ -109,12 +201,12 @@ def test_code(test_case):
     t_4_e = abs(theta4-test_case[2][3])
     t_5_e = abs(theta5-test_case[2][4])
     t_6_e = abs(theta6-test_case[2][5])
-    print ("\nTheta 1 error is: %04.8f" % t_1_e)
-    print ("Theta 2 error is: %04.8f" % t_2_e)
-    print ("Theta 3 error is: %04.8f" % t_3_e)
-    print ("Theta 4 error is: %04.8f" % t_4_e)
-    print ("Theta 5 error is: %04.8f" % t_5_e)
-    print ("Theta 6 error is: %04.8f" % t_6_e)
+    print ("\nTheta 1 error is: %04.8f (%04.8f/%04.8f)" % (t_1_e, theta1, test_case[2][0]))
+    print ("Theta 2 error is: %04.8f (%04.8f/%04.8f)" % (t_2_e, theta2, test_case[2][1]))
+    print ("Theta 3 error is: %04.8f (%04.8f/%04.8f)" % (t_3_e, theta3, test_case[2][2]))
+    print ("Theta 4 error is: %04.8f (%04.8f/%04.8f)" % (t_4_e, theta4, test_case[2][3]))
+    print ("Theta 5 error is: %04.8f (%04.8f/%04.8f)" % (t_5_e, theta5, test_case[2][4]))
+    print ("Theta 6 error is: %04.8f (%04.8f/%04.8f)" % (t_6_e, theta6, test_case[2][5]))
     print ("\n**These theta errors may not be a correct representation of your code, due to the fact \
            \nthat the arm can have muliple positions. It is best to add your forward kinmeatics to \
            \nconfirm whether your code is working or not**")
@@ -136,6 +228,6 @@ def test_code(test_case):
 
 if __name__ == "__main__":
     # Change test case number for different scenarios
-    test_case_number = 1
+    test_case_number = 2
 
     test_code(test_cases[test_case_number])
