@@ -100,7 +100,7 @@ def handle_calculate_IK(req):
                     req.poses[x].orientation.z, req.poses[x].orientation.w])
 
             ### Your IK code here
-            # Locate the wrist center
+            # Locate the wrist center            
             EE_pos = Matrix([[px], [py], [pz]])
             EE_orientation_corrected_subs = EE_orientation_corrected.subs({'r': roll, 'p': pitch, 'y': yaw})
             WC_pos = EE_pos - DH[d7] * EE_orientation_corrected_subs[:, 2]
@@ -111,12 +111,12 @@ def handle_calculate_IK(req):
             s2 = sqrt(pow(sqrt(WC_pos[0] * WC_pos[0] + WC_pos[1] * WC_pos[1]) - DH[a1], 2) + pow((WC_pos[2] - DH[d1]), 2)) 
             s3 = DH[a2]
 
-            angle1 = acos((s2 * s2 + s3 * s3 - s1 * s1) / (2 * s2 * s3))
+            angle1 = acos((s2 * s2 + s3 * s3 - s1 * s1) / (2 * s2 * s3))    
             angle2 = acos((s1 * s1 + s3 * s3 - s2 * s2) / (2 * s1 * s3))
             angle3 = acos((s1 * s1 + s2 * s2 - s3 * s3 ) / (2 * s1 * s2))
 
             theta2 = pi/2. - angle1 - atan2(WC_pos[2] - DH[d1], sqrt(WC_pos[0] * WC_pos[0] + WC_pos[1] * WC_pos[1]) - DH[a1])
-            theta3 = pi/2. - (angle2 + 0.036) # 0.036 accounts for sag in link4 of -0.054m
+            theta3 = pi/2. - (angle2 + atan2(abs(DH[a3]), abs(DH[d4])))
 
             # Finding rotation matrix for the last 3 joints
             R0_3 = T0_1[0:3,0:3] * T1_2[0:3,0:3] * T2_3[0:3,0:3]
