@@ -123,3 +123,66 @@ simplify(T0_EE) = Matrix([
 [                                                                -(sin(q5)*sin(q2 + q3) - cos(q4)*cos(q5)*cos(q2 + q3))*cos(q6) - sin(q4)*sin(q6)*cos(q2 + q3),                                                                  (sin(q5)*sin(q2 + q3) - cos(q4)*cos(q5)*cos(q2 + q3))*sin(q6) - sin(q4)*cos(q6)*cos(q2 + q3),                                     -sin(q5)*cos(q4)*cos(q2 + q3) - sin(q2 + q3)*cos(q5),                                                                                 -0.303*sin(q5)*cos(q4)*cos(q2 + q3) - 0.303*sin(q2 + q3)*cos(q5) - 1.5*sin(q2 + q3) + 1.25*cos(q2) - 0.054*cos(q2 + q3) + 0.75],
 [                                                                                                                                                            0,                                                                                                                                                             0,                                                                                        0,                                                                                                                                                                                                            1.0]])
 ```
+
+## Inverse kinematics
+
+We have position and orientation of the end-effector:
+
+```python
+px = req.poses[x].position.x
+py = req.poses[x].position.y
+pz = req.poses[x].position.z
+
+(roll, pitch, yaw) = tf.transformations.euler_from_quaternion(
+    [req.poses[x].orientation.x, req.poses[x].orientation.y,
+        req.poses[x].orientation.z, req.poses[x].orientation.w])
+```
+
+From the position and orientation of the end-effector we can find position of the wrist:
+
+```python
+EE_orientation_corrected_subs = EE_orientation_corrected.subs({'r': roll, 'p': pitch, 'y': yaw})
+WC_pos = EE_pos - DH[d7] * EE_orientation_corrected_subs[:, 2]
+```
+
+Theta1 can be found as:
+```python
+theta1 = atan2(WC_pos[1], WC_pos[0])
+```
+
+Then from this image and trigonometry we can find theta2 and theta3:
+
+![First theta parameters](https://raw.githubusercontent.com/SeninAndrew/RoboND-Kinematics-Project/master/imgs/inverse.png)
+
+```python
+s1 = DH[d4]
+s2 = sqrt(pow(sqrt(WC_pos[0] * WC_pos[0] + WC_pos[1] * WC_pos[1]) - DH[a1], 2) + pow((WC_pos[2] - DH[d1]), 2)) 
+s3 = DH[a2]
+
+angle1 = acos((s2 * s2 + s3 * s3 - s1 * s1) / (2 * s2 * s3))    
+angle2 = acos((s1 * s1 + s3 * s3 - s2 * s2) / (2 * s1 * s3))
+angle3 = acos((s1 * s1 + s2 * s2 - s3 * s3 ) / (2 * s1 * s2))
+
+theta2 = pi/2. - angle1 - atan2(WC_pos[2] - DH[d1], sqrt(WC_pos[0] * WC_pos[0] + WC_pos[1] * WC_pos[1]) - DH[a1])
+theta3 = pi/2. - (angle2 + atan2(math.abs(DH[a3]), math.abs(DH[d4]))
+```
+
+Once we have thetas 1-3 we can calculate transformation from the joint 0 to the joint 3:
+
+```python
+R0_3 = T0_1[0:3,0:3] * T1_2[0:3,0:3] * T2_3[0:3,0:3]
+R0_3 = R0_3.evalf(subs={q1: theta1, q2:theta2, q3: theta3})
+```
+
+Then we can find transformation from joints 3 to 6 by using the inverse of R0_3:
+
+```python
+R3_6 = R0_3.transpose() * EE_orientation_corrected_subs
+```
+
+And finally extract the remaining thetas 3-6 from this matrix:
+```python
+theta4 = atan2(R3_6[2,2], -R3_6[0,2])
+theta5 = atan2(sqrt(R3_6[0,2]*R3_6[0,2] + R3_6[2,2]*R3_6[2,2]), R3_6[1,2])
+theta6 = atan2(-R3_6[1,1], R3_6[1,0]) 
+```
