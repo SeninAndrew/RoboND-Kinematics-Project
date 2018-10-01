@@ -1,5 +1,7 @@
 # Robotic arm - Pick & Place project
 
+Video demo: https://www.youtube.com/watch?v=K29czbRWfgs
+
 ## Denavit-Hartenberg Parameters
 
 This project is using the Kuka KR 210 robotic arm which can be represented with the following list of joints (image credits: Udacity):
