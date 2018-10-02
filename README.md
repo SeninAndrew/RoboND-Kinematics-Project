@@ -2,6 +2,9 @@
 
 Video demo: https://www.youtube.com/watch?v=K29czbRWfgs
 
+Image with the item in the bin: 
+![Item in the bin](https://raw.githubusercontent.com/SeninAndrew/RoboND-Kinematics-Project/master/imgs/in_bin.png)
+
 ## Denavit-Hartenberg Parameters
 
 This project is using the Kuka KR 210 robotic arm which can be represented with the following list of joints (image credits: Udacity):
