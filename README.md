@@ -5,6 +5,14 @@ Video demo: https://www.youtube.com/watch?v=K29czbRWfgs
 Image with the item in the bin: 
 ![Item in the bin](https://raw.githubusercontent.com/SeninAndrew/RoboND-Kinematics-Project/master/imgs/in_bin.png)
 
+My notes from the project: 
+
+The most difficult part in the project was refreshing the inverse kinematics. Once I had understanding of it the rest was more or less straightforward. 
+
+Also I had some tech issues with the ROS setup. I decided not to use the VM environments as it was too slow on my laptop. So I had to deal with some missing dependencies issues and Python compatibilities. I managed to make all work only with Python2.7, but initially I had Python3.6. Even in native setup it is not as fast as I wish it is. Rviz works at something about 10 FPS on my i7-based laptop (even in demo mode without my code). Not sure if it is something expected or something is wrong in my setup. 
+
+As you can see from the video the movements of the arm are not smooth and has some unnecessary rotations. Not sure what's the reason for that. My best theory would be that we are using Euler angles instead of quaternions. I know that the later are much better for approximating movements smoothly. Based on the discussion on slack this seems to be a common problem.
+
 ## Denavit-Hartenberg Parameters
 
 This project is using the Kuka KR 210 robotic arm which can be represented with the following list of joints (image credits: Udacity):
