@@ -13,6 +13,11 @@ Also I had some tech issues with the ROS setup. I decided not to use the VM envi
 
 As you can see from the video the movements of the arm are not smooth and has some unnecessary rotations. Not sure what's the reason for that. My best theory would be that we are using Euler angles instead of quaternions. I know that the later are much better for approximating movements smoothly. Based on the discussion on slack this seems to be a common problem.
 
+A few things I would like to improve (when I have time):
+- figure out and fix the problem with auxiliary rotations of the arm joints
+- optimize the code by switching to Numpy and saving matrices between function calls 
+- implement the Jacobian IK method to compare it with the implemented method
+
 ## Denavit-Hartenberg Parameters
 
 This project is using the Kuka KR 210 robotic arm which can be represented with the following list of joints (image credits: Udacity):
